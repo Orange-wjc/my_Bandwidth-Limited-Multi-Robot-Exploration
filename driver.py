@@ -60,7 +60,7 @@ def main():
         global_policy_net.load_state_dict(checkpoint['policy_model'])
         global_q_net1.load_state_dict(checkpoint['q_net1_model'])
         global_q_net2.load_state_dict(checkpoint['q_net2_model'])
-        log_alpha = checkpoint['log_alpha']  # not trainable when loaded from checkpoint, manually tune it for now
+        log_alpha = checkpoint['log_alpha'].detach().clone().to(device).requires_grad_(True)
         log_alpha_optimizer = optim.Adam([log_alpha], lr=1e-4)
         
         global_policy_optimizer.load_state_dict(checkpoint['policy_optimizer'])

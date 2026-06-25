@@ -9,8 +9,7 @@ from local_node_manager_quadtree import Local_node_manager
 
 class Agent:
     def __init__(self, id, policy_net, env, ground_truth_node_manager, device='cpu', plot=False):
-        if env.test:
-            N_AGENTS = TEST_N_AGENTS
+        self.n_agent = TEST_N_AGENTS if env.test else N_AGENTS
         self.id = id
         self.device = device
         self.plot = plot
@@ -56,7 +55,7 @@ class Agent:
         self.current_local_index, self.local_adjacent_matrix, self.local_neighbor_indices = None, None, None
 
         # msg
-        self.msgs =[[] for _ in range(N_AGENTS)]
+        self.msgs =[[] for _ in range(self.n_agent)]
 
         # momentum
         self.momentum = np.zeros(2) 
@@ -438,7 +437,7 @@ class Agent:
 
     def get_stacked_msg(self):
         stacked_msg = []
-        for idx in range(N_AGENTS):
+        for idx in range(self.n_agent):
             # skip self
             if idx == self.id:
                 continue

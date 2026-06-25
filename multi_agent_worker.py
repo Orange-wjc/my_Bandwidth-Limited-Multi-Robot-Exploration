@@ -196,11 +196,6 @@ class Multi_agent_worker:
                 self.robot_list[agent_id].save_done(done)
                 
 
-            if self.global_step % 500 > 480 or self.global_step % 500 == 0:
-                self.save_image = True
-            else:
-                self.save_image = False
-
             if self.save_image:
                 self.plot_local_env(i)
 

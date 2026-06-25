@@ -56,6 +56,10 @@ class Agent:
 
         # msg
         self.msgs =[[] for _ in range(self.n_agent)]
+        self.last_sent_msg = None
+        self.comm_count = 0
+        self.upload_bytes = 0
+        self.download_bytes = 0
 
         # momentum
         self.momentum = np.zeros(2) 

@@ -1,4 +1,4 @@
-FOLDER_NAME = 'clean'
+FOLDER_NAME = 'event_tau_02'
 model_path = f'model/{FOLDER_NAME}'
 train_path = f'train/{FOLDER_NAME}'
 gifs_path = f'gifs/{FOLDER_NAME}'
@@ -30,6 +30,12 @@ GAMMA = 1
 LOCAL_NODE_INPUT_DIM = 5
 OTHER_INFO_INPUT_DIM = 3
 EMBEDDING_DIM = 64
+MESSAGE_BYTES = EMBEDDING_DIM * 4
+
+COMM_MODE = "event"  # "always", "fixed", "event", "random"
+COMM_THRESHOLD = 0.2
+COMM_INTERVAL = 4
+COMM_PROB = 0.5
 
 LOCAL_K_SIZE = 25  # the number of neighboring nodes
 LOCAL_NODE_PADDING_SIZE = 360  # the number of nodes will be padded to this value

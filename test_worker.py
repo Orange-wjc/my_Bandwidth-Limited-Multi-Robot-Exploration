@@ -45,8 +45,8 @@ class TestWorker:
                 local_node_inputs, local_node_padding_mask, local_edge_mask, current_local_index, current_local_edge, local_edge_padding_mask = local_observation
                 current_coord = torch.tensor(robot.location, dtype=torch.float32, device=self.device).reshape(1, 1, 2)
                 enhanced_node_feature, current_state_feature = robot.policy_net.get_current_state_feature(local_node_inputs, local_node_padding_mask, local_edge_mask, current_local_index,current_coord)
-                # send detached current_state_feature to other robots
-                self.send_msg(current_state_feature.detach(), robot.id)
+                if self.should_send_msg(robot, current_state_feature, step=i):
+                    self.send_msg(current_state_feature.detach(), robot.id)
 
 
             for robot in self.robot_list:
@@ -100,15 +100,45 @@ class TestWorker:
 
         # save metrics
         self.perf_metrics['travel_dist'] = max([robot.travel_dist for robot in self.robot_list])
+        self.perf_metrics['explored_rate'] = self.env.explored_rate
         self.perf_metrics['success_rate'] = done
+        self.perf_metrics['comm_count'] = sum([robot.comm_count for robot in self.robot_list])
+        self.perf_metrics['upload_bytes'] = sum([robot.upload_bytes for robot in self.robot_list])
+        self.perf_metrics['download_bytes'] = sum([robot.download_bytes for robot in self.robot_list])
 
 
         # save gif
         if self.save_image:
             make_gif(gifs_path, self.global_step, self.env.frame_files, self.env.explored_rate)
 
+    def should_send_msg(self, robot, msg, step):
+        if COMM_MODE == "always":
+            return True
+
+        if robot.last_sent_msg is None:
+            return True
+
+        if COMM_MODE == "fixed":
+            return step % COMM_INTERVAL == 0
+
+        if COMM_MODE == "random":
+            return np.random.rand() < COMM_PROB
+
+        if COMM_MODE == "event":
+            diff = torch.norm(msg.detach() - robot.last_sent_msg.to(msg.device), p=2)
+            return diff.item() > COMM_THRESHOLD
+
+        raise ValueError(f"Unknown COMM_MODE: {COMM_MODE}")
+
     def send_msg(self, msg, robot_id):
+        sender = self.robot_list[robot_id]
+        sender.last_sent_msg = msg.clone()
+        sender.comm_count += 1
+        sender.upload_bytes += MESSAGE_BYTES
+
         for robot in self.robot_list:
+            if robot.id != robot_id:
+                robot.download_bytes += MESSAGE_BYTES
             if len(robot.msgs[robot_id]) > 5:
                 # delete the oldest msg
                 robot.msgs[robot_id].pop(0)

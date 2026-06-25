@@ -91,8 +91,8 @@ class Multi_agent_worker:
                 local_node_inputs, local_node_padding_mask, local_edge_mask, current_local_index, current_local_edge, local_edge_padding_mask = local_observation
                 current_coord = torch.tensor(robot.location, dtype=torch.float32, device=self.device).reshape(1, 1, 2)
                 enhanced_node_feature, current_state_feature = robot.policy_net.get_current_state_feature(local_node_inputs, local_node_padding_mask, local_edge_mask, current_local_index,current_coord)
-                # send detached current_state_feature to other robots
-                self.send_msg(current_state_feature.detach(), robot.id)
+                if self.should_send_msg(robot, current_state_feature, step=i):
+                    self.send_msg(current_state_feature.detach(), robot.id)
 
             for robot in self.robot_list:
                 # ground truth observation
@@ -208,24 +208,20 @@ class Multi_agent_worker:
         self.perf_metrics['travel_dist'] = max([robot.travel_dist for robot in self.robot_list])
         self.perf_metrics['explored_rate'] = self.env.explored_rate
         self.perf_metrics['success_rate'] = done
+        self.perf_metrics['comm_count'] = sum([robot.comm_count for robot in self.robot_list])
+        self.perf_metrics['upload_bytes'] = sum([robot.upload_bytes for robot in self.robot_list])
+        self.perf_metrics['download_bytes'] = sum([robot.download_bytes for robot in self.robot_list])
 
         # save episode buffer
-        temp_next_msgs = []
         for robot in self.robot_list:
             next_local_observations.append(robot.get_local_observation())
-            next_local_observation = next_local_observations[robot.id]
-            next_local_node_inputs, next_local_node_padding_mask, next_local_edge_mask, next_current_local_index, next_current_local_edge, next_local_edge_padding_mask = next_local_observation
-
-            current_coord = torch.tensor(robot.location, dtype=torch.float32, device=self.device).reshape(1, 1, 2)
-            enhanced_node_feature, next_current_state_feature = robot.policy_net.get_current_state_feature(next_local_node_inputs, next_local_node_padding_mask, next_local_edge_mask, next_current_local_index,current_coord)
-            temp_next_msgs.append(next_current_state_feature.detach())
 
         for robot in self.robot_list:
             next_local_observation = next_local_observations[robot.id]
             next_ground_truth_observation = robot.get_ground_truth_observation() 
             next_ground_truth_observations.append(next_ground_truth_observation)
             
-            next_stacked_msg = self.stack_msgs(temp_next_msgs, robot.id)
+            next_stacked_msg = robot.get_stacked_msg()
             robot.save_next_observations(next_local_observation, next_stacked_msg)
             robot.save_ground_truth_observations(next_ground_truth_observation)
             for i in range(len(self.episode_buffer)):
@@ -290,8 +286,34 @@ class Multi_agent_worker:
         self.env.frame_files.append(frame)
         plt.close()
     
+    def should_send_msg(self, robot, msg, step):
+        if COMM_MODE == "always":
+            return True
+
+        if robot.last_sent_msg is None:
+            return True
+
+        if COMM_MODE == "fixed":
+            return step % COMM_INTERVAL == 0
+
+        if COMM_MODE == "random":
+            return np.random.rand() < COMM_PROB
+
+        if COMM_MODE == "event":
+            diff = torch.norm(msg.detach() - robot.last_sent_msg.to(msg.device), p=2)
+            return diff.item() > COMM_THRESHOLD
+
+        raise ValueError(f"Unknown COMM_MODE: {COMM_MODE}")
+
     def send_msg(self, msg, robot_id):
+        sender = self.robot_list[robot_id]
+        sender.last_sent_msg = msg.clone()
+        sender.comm_count += 1
+        sender.upload_bytes += MESSAGE_BYTES
+
         for robot in self.robot_list:
+            if robot.id != robot_id:
+                robot.download_bytes += MESSAGE_BYTES
             if len(robot.msgs[robot_id]) > 5:
                 # delete the oldest msg
                 robot.msgs[robot_id].pop(0)

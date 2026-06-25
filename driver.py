@@ -105,7 +105,7 @@ def main():
         job_list.append(meta_agent.job.remote(weights_set, curr_episode))
 
     # initialize metric collector
-    metric_name = ['travel_dist', 'success_rate', 'explored_rate']
+    metric_name = ['travel_dist', 'success_rate', 'explored_rate', 'comm_count', 'upload_bytes', 'download_bytes']
     training_data = []
     perf_metrics = {}
     for n in metric_name:
@@ -348,7 +348,7 @@ def write_to_tensor_board(writer, tensorboard_data, curr_episode):
 
     tensorboard_data = np.array(tensorboard_data)
     tensorboard_data = list(np.nanmean(tensorboard_data, axis=0))
-    reward, value, policy_loss, q_value_loss, entropy, policy_grad_norm, q_value_grad_norm, log_alpha, alpha_loss, travel_dist, success_rate, explored_rate = tensorboard_data
+    reward, value, policy_loss, q_value_loss, entropy, policy_grad_norm, q_value_grad_norm, log_alpha, alpha_loss, travel_dist, success_rate, explored_rate, comm_count, upload_bytes, download_bytes = tensorboard_data
     
     writer.add_scalar(tag='Losses/Value', scalar_value=value, global_step=curr_episode)
     writer.add_scalar(tag='Losses/Policy Loss', scalar_value=policy_loss, global_step=curr_episode)
@@ -363,6 +363,9 @@ def write_to_tensor_board(writer, tensorboard_data, curr_episode):
     writer.add_scalar(tag='Perf/Travel Distance', scalar_value=travel_dist, global_step=curr_episode)
     writer.add_scalar(tag='Perf/Explored Rate', scalar_value=explored_rate, global_step=curr_episode)
     writer.add_scalar(tag='Perf/Success Rate', scalar_value=success_rate, global_step=curr_episode)
+    writer.add_scalar(tag='Comm/Message Count', scalar_value=comm_count, global_step=curr_episode)
+    writer.add_scalar(tag='Comm/Upload MB', scalar_value=upload_bytes / (1024 * 1024), global_step=curr_episode)
+    writer.add_scalar(tag='Comm/Download MB', scalar_value=download_bytes / (1024 * 1024), global_step=curr_episode)
 
 
 if __name__ == "__main__":

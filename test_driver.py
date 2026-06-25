@@ -22,6 +22,10 @@ def run_test():
 
     dist_history = []
     success = []
+    explored_rate_history = []
+    comm_count_history = []
+    upload_mb_history = []
+    download_mb_history = []
 
     job_list = []
     for i, meta_agent in enumerate(meta_agents):
@@ -37,6 +41,10 @@ def run_test():
                 metrics, info = job
                 dist_history.append(metrics['travel_dist'])
                 success.append(metrics['success_rate'])
+                explored_rate_history.append(metrics['explored_rate'])
+                comm_count_history.append(metrics['comm_count'])
+                upload_mb_history.append(metrics['upload_bytes'] / (1024 * 1024))
+                download_mb_history.append(metrics['download_bytes'] / (1024 * 1024))
             if curr_test < NUM_TEST:
                 job_list.append(meta_agents[info['id']].job.remote(weights, curr_test))
                 curr_test += 1
@@ -45,6 +53,10 @@ def run_test():
         print('|#Average length:', np.array(dist_history).mean())
         print('|#Length std:', np.array(dist_history).std())
         print('|#Success rate', float(np.array(success).sum()) / NUM_TEST)
+        print('|#Average explored rate:', np.array(explored_rate_history).mean())
+        print('|#Average comm count:', np.array(comm_count_history).mean())
+        print('|#Average upload MB:', np.array(upload_mb_history).mean())
+        print('|#Average download MB:', np.array(download_mb_history).mean())
 
     except KeyboardInterrupt:
         print("CTRL_C pressed. Killing remote workers")
